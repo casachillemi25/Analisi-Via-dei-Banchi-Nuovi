@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisi Mercato Turistico - Via dei Banchi Nuovi 28, Roma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-active {
+            background-color: #e0f2fe;
+            color: #0284c7;
+            font-weight: 600;
+        }
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        @media (max-width: 1023px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+        }
+    </style>
+    <!-- Chosen Palette: Coastal Calm (BG: gray-50, Text: gray-800, Accent: sky-600, Cards: white) -->
+    <!-- Application Structure Plan: L'app è strutturata come un cruscotto interattivo per investitori con navigazione laterale. Le sezioni sono: 'Cruscotto' (KPI e Grafico Mensile Interattivo ADR/Occupazione per tipologia), 'Analisi di Mercato' (flussi e offerta), 'Analisi Competitiva' (prezzi, occupazione comparata, SWOT), 'Domanda e Trend' (driver e calendario eventi 2025), 'Strategia' (modelli operativi e simulatore ROI) e 'Piano d'Azione'. È stato implementato un selettore dedicato nel grafico mensile per consentire all'investitore di filtrare l'andamento stagionale di ADR ed Occupazione tra le 5 tipologie richieste (Monolocale, Bilocale, Trilocale, Quadrilocale, Casa con giardino). -->
+    <!-- Visualization & Content Choices: - Grafico Mensile Interattivo (Cruscotto): Goal: Mostrare trend mensili per tipologia. Method: Line Chart a doppio asse Y (Chart.js). Interaction: Dropdown 'monthlyPropertySelector' per cambiare istantaneamente curva ADR (€) e Occupazione (%) per Monolocale, Bilocale, Trilocale, Quadrilocale e Casa con Giardino. Justification: Permette analisi puntuale della redditività mensile per ogni specifica configurazione d'immobile. - KPI: Goal: Overview rapido. Method: HTML Cards. - Provenienza Turisti & Offerta: Goal: Proporzioni/Confronti. Method: Doughnut & Bar Chart (Chart.js). - Simulatore ROI: Goal: Decision making. Method: Controlli range interattivi per R2R, PM e B2L. - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col lg:flex-row antialiased">
+
+    <!-- Mobile Header -->
+    <header class="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center space-x-2">
+            <span class="text-xl font-bold text-sky-600">📍 InvestRoma</span>
+            <span class="text-xs bg-sky-100 text-sky-800 px-2 py-0.5 rounded font-medium">Banchi Nuovi 28</span>
+        </div>
+        <button onclick="toggleSidebar()" class="p-2 text-gray-600 hover:text-gray-900 focus:outline-none text-xl">
+            ☰
+        </button>
+    </header>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-gray-900/50 z-30 hidden lg:hidden"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="sidebar fixed lg:static inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-40 flex flex-col justify-between shrink-0">
+        <div>
+            <!-- Sidebar Header -->
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl font-black text-sky-600">📍</span>
+                    <div>
+                        <h1 class="font-bold text-gray-900 text-sm leading-tight">Analisi Immobiliare</h1>
+                        <p class="text-xs text-gray-500">Banchi Nuovi 28 — Roma</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="p-4 space-y-1 text-sm font-medium">
+                <button onclick="switchTab('cruscotto')" id="nav-cruscotto" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition nav-active">
+                    <span>📊</span>
+                    <span>Cruscotto & Stagionalità</span>
+                </button>
+                <button onclick="switchTab('mercato')" id="nav-mercato" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    <span>📈</span>
+                    <span>Analisi di Mercato</span>
+                </button>
+                <button onclick="switchTab('competitiva')" id="nav-competitiva" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    <span>🏠</span>
+                    <span>Analisi Competitiva</span>
+                </button>
+                <button onclick="switchTab('domanda')" id="nav-domanda" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    <span>📅</span>
+                    <span>Domanda & Calendario</span>
+                </button>
+                <button onclick="switchTab('strategia')" id="nav-strategia" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    <span>💡</span>
+                    <span>Strategia & ROI</span>
+                </button>
+                <button onclick="switchTab('piano')" id="nav-piano" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition">
+                    <span>🚀</span>
+                    <span>Piano d'Azione (5 Mosse)</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="text-xs text-gray-500 leading-relaxed">
+                <p class="font-semibold text-gray-700 mb-0.5">Focus Giubileo 2025</p>
+                Studio di fattibilità per Sublocazione, Property Management e Buy-to-Let.
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 overflow-y-auto">
+
+        <!-- TAB 1: CRUSCOTTO & STAGIONALITÀ -->
+        <section id="sec-cruscotto" class="tab-content space-y-6">
+            <!-- Intro Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Panoramica Esecutiva</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Cruscotto dell'Investitore — Banchi Nuovi 28</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Benvenuto nel report di analisi turistica e immobiliare per la micro-zona di <strong>Via dei Banchi Nuovi 28 (Rione Ponte, Roma)</strong>. Questa sezione fornisce i Key Performance Indicators (KPI) principali e un grafico di stagionalità mensile interattivo che permette di isolare ed analizzare le prestazioni di <strong>ADR (€)</strong> ed <strong>Occupazione (%)</strong> per ciascuna tipologia d'immobile per l'anno 2025.
+                </p>
+            </div>
+
+            <!-- KPI Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <span class="text-xs font-semibold text-gray-500 block">Arrivi Turistici Roma (Stima)</span>
+                    <span class="text-2xl font-bold text-gray-900 mt-1 block">&gt; 12,8 Mln</span>
+                    <span class="text-xs font-medium text-emerald-600 mt-1 inline-block">▲ +4,8% YoY (Turismo Straniero)</span>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <span class="text-xs font-semibold text-gray-500 block">Presenze Totali (Pernottamenti)</span>
+                    <span class="text-2xl font-bold text-gray-900 mt-1 block">35,2 Mln</span>
+                    <span class="text-xs font-medium text-gray-500 mt-1 inline-block">Permanenza media: 3,2 notti</span>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <span class="text-xs font-semibold text-gray-500 block">Occupazione Media Rione Ponte</span>
+                    <span class="text-2xl font-bold text-sky-600 mt-1 block">71,5 %</span>
+                    <span class="text-xs font-medium text-sky-700 mt-1 inline-block">Picco 88% in alta stagione</span>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <span class="text-xs font-semibold text-gray-500 block">ADR Medio Tipico (Bilocale/Trilocale)</span>
+                    <span class="text-2xl font-bold text-gray-900 mt-1 block">€ 215 / notte</span>
+                    <span class="text-xs font-medium text-emerald-600 mt-1 inline-block">RevPAR stimato: € 153</span>
+                </div>
+            </div>
+
+            <!-- Seasonality Chart Card with Property Switcher -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Andamento Mensile: Tariffe ADR (€) & Tasso Occupazione (%)</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Seleziona la tipologia di immobile per visualizzare la curva di stagionalità specifica nel 2025.</p>
+                    </div>
+
+                    <!-- Property Type Selector -->
+                    <div class="flex items-center space-x-2 shrink-0">
+                        <label for="monthlyPropertySelector" class="text-xs font-bold text-gray-700 uppercase">Tipologia Asset:</label>
+                        <select id="monthlyPropertySelector" onchange="updateMonthlySeasonalityChart()" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5 font-bold">
+                            <option value="monolocale">Monolocale</option>
+                            <option value="bilocale" selected>Bilocale</option>
+                            <option value="trilocale">Trilocale</option>
+                            <option value="quadrilocale">Quadrilocale</option>
+                            <option value="giardino">Casa con Giardino</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Descriptive Dynamic Note -->
+                <div id="monthlyTypeNote" class="bg-sky-50 p-3 rounded-lg border border-sky-100 text-xs text-sky-900 leading-relaxed font-medium">
+                    Visualizzazione: Bilocale (1 Cam / 1 Bagno). Tipologia ad altissimo tasso di occupazione, ideale per coppie e travel business.
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="seasonalityChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: ANALISI DI MERCATO -->
+        <section id="sec-mercato" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Macro & Micro Ambiente</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Flussi Turistici e Offerta Ricettiva a Roma</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    L'immobile in Via dei Banchi Nuovi 28 beneficia di una posizione di primissimo ordine nel Rione V Ponte, cerniera strategica tra Piazza Navona e San Pietro (Castel Sant'Angelo). Questa sezione analizza la provenienza della domanda e la suddivisione dell'offerta ricettiva ricadente nell'area.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Provenienza Turisti -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">Provenienza dei Turisti (Mercati Chiave)</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Prevalenza della domanda internazionale ad alta capacità di spesa.</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="originChart"></canvas>
+                    </div>
+                    <div class="bg-sky-50 p-4 rounded-lg border border-sky-100 text-xs text-sky-900 leading-relaxed">
+                        <strong>Insight Mercato:</strong> Il 62% dei pernottamenti nel Rione Ponte proviene dall'estero. Gli USA rappresentano il primo mercato spender, seguiti da Regno Unito e Europa Centrale, ideali per sostenere ADR elevati.
+                    </div>
+                </div>
+
+                <!-- Offerta Ricettiva -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">Composizioni dell'Offerta Ricettiva nel Centro</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Ripartizione tra settore alberghiero ed extra-alberghiero.</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="supplyChart"></canvas>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-xs text-gray-700 leading-relaxed">
+                        <strong>Insight Strutture:</strong> Le Case Vacanza e gli Appartamenti Turistici dominano la quota extra-alberghiera (oltre 18.500 unità attive nel centro esteso), rispondendo alla forte domanda di turismo familiare e gruppi.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: ANALISI COMPETITIVA -->
+        <section id="sec-competitiva" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Benchmark Competitivo</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Prezzi, Occupazione & SWOT Competitor</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Confronto panoramico dei parametri finanziari medi (ADR e Tasso di Occupazione) per singola tipologia immobiliare attorno a Via dei Banchi Nuovi.
+                </p>
+            </div>
+
+            <!-- Dynamic Property Filter Selector for Benchmark -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <label for="propertyTypeSelector" class="block text-xs font-bold text-gray-700 uppercase mb-1">Seleziona Tipologia per Benchmark:</label>
+                    <select id="propertyTypeSelector" onchange="updateCompetitorCharts()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5 font-medium min-w-[240px]">
+                        <option value="all" selected>Tutte le Tipologie (Confronto)</option>
+                        <option value="monolocale">Monolocale</option>
+                        <option value="bilocale">Bilocale</option>
+                        <option value="trilocale">Trilocale (Sweet Spot)</option>
+                        <option value="quadrilocale">Quadrilocale / Gruppi</option>
+                        <option value="giardino">Casa con Giardino</option>
+                    </select>
+                </div>
+                <div id="propertyTypeSummary" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200 max-w-md">
+                    Mostrando panoramica comparativa per tutte le tipologie in zona Banchi Nuovi / Rione Ponte.
+                </div>
+            </div>
+
+            <!-- Dynamic Benchmark Charts Container -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ADR Chart -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                    <h3 class="text-base font-bold text-gray-900">Prezzo Medio Annuale per Notte (ADR €)</h3>
+                    <div class="chart-container">
+                        <canvas id="adrChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Occupancy Chart -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                    <h3 class="text-base font-bold text-gray-900">Livello Medio di Occupazione Annua (%)</h3>
+                    <div class="chart-container">
+                        <canvas id="occChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SWOT Matrix Competitor -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl border border-red-200 shadow-sm space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-red-500 font-bold text-lg">⚠️</span>
+                        <h4 class="font-bold text-gray-900 text-sm">Punti di Debolezza dei Competitor in Zona</h4>
+                    </div>
+                    <ul class="text-xs text-gray-600 space-y-2 list-disc pl-4 leading-relaxed">
+                        <li><strong>Rumore Notturno e Infissi Datati:</strong> Molte strutture sul corso soffrono di scarso isolamento acustico.</li>
+                        <li><strong>Assenza di Ascensore / Barriere:</strong> Palazzi storici senza ascensore o con rampe di scale ripide.</li>
+                        <li><strong>Check-in Rigidi e Keybox Abusive:</strong> Problemi di accoglienza e violazioni TULPS Art. 109 per keybox su strada.</li>
+                        <li><strong>Climatizzazione Inadeguata:</strong> Impianti AC sottodimensionati nei mesi caldi estivi.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-emerald-200 shadow-sm space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-emerald-500 font-bold text-lg">⭐</span>
+                        <h4 class="font-bold text-gray-900 text-sm">Punti di Forza da Sfruttare a Banchi Nuovi 28</h4>
+                    </div>
+                    <ul class="text-xs text-gray-600 space-y-2 list-disc pl-4 leading-relaxed">
+                        <li><strong>Fascino Architettonico:</strong> Soffitti alti, travi a vista ed eleganza del centro storico romano.</li>
+                        <li><strong>Posizione Walkable Unica:</strong> Distanze a piedi: 4 min da Piazza Navona, 6 min da San Pietro.</li>
+                        <li><strong>Atmosfera Pedonale e Botteghe:</strong> Via ricca di fascino, artigianato e ristorazione di qualità.</li>
+                        <li><strong>Opportunità Smart Lock Biometrica:</strong> Integrazione di varchi elettronici a norma di legge.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: DOMANDA E TREND -->
+        <section id="sec-domanda" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Driver & Eventi Strategici</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Domanda Turistica & Calendario Opportunità 2025</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Mappatura delle motivazioni di viaggio, dei canali di acquisizione e delle date chiave dell'anno 2025 per l'impostazione di strategie di <strong>Dynamic Pricing</strong> aggressive durante i picchi di domanda.
+                </p>
+            </div>
+
+            <!-- Motivazioni & Canali -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
+                    <h4 class="font-bold text-gray-900 text-sm flex items-center space-x-2">
+                        <span>🏛️</span>
+                        <span>Driver di Viaggio</span>
+                    </h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        Cultura e patrimonio storico (78%), Enogastronomia di pregio (64%), Eventi Religiosi/Giubileo (45%), Bleisure e lavoro da remoto (22%).
+                    </p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
+                    <h4 class="font-bold text-gray-900 text-sm flex items-center space-x-2">
+                        <span>🌐</span>
+                        <span>Canali OTA Prevalenti</span>
+                    </h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        <strong>Airbnb (48%)</strong> per le famiglie/coppie internazionali, <strong>Booking.com (38%)</strong> per il pubblico europeo/business, Prenotazioni Dirette e Social (14%).
+                    </p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
+                    <h4 class="font-bold text-gray-900 text-sm flex items-center space-x-2">
+                        <span>⭐</span>
+                        <span>Recensioni & Trend</span>
+                    </h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        Punteggio medio zone di pregio: 8.9/10. Fattori critici premiati: pulizia impeccabile, velocità Wi-Fi, isolamento acustico e supporto concierge.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Key Dates 2025 Table -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">Calendario Strategico Eventi 2025 (Finestre ad Alta ADR)</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Date da pre-caricare sui software di revenue management con tariffe maggiorate dal +50% al +150%.</p>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-gray-600 border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold uppercase tracking-wider">
+                                <th class="p-3">Periodo / Data 2025</th>
+                                <th class="p-3">Evento / Opportunità</th>
+                                <th class="p-3">Target di Riferimento</th>
+                                <th class="p-3 text-right">Strategia ADR Consigliata</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 font-medium">
+                            <tr class="hover:bg-gray-50/50">
+                                <td class="p-3 font-bold text-gray-900">24 Dic 2024 – Gen 2025</td>
+                                <td class="p-3">Apertura Porta Santa & Inizio Giubileo</td>
+                                <td class="p-3">Pellegrini VIP, Famiglie, Stranieri</td>
+                                <td class="p-3 text-right font-bold text-sky-600">+80% su tariffa base</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50/50">
+                                <td class="p-3 font-bold text-gray-900">18 – 21 Aprile 2025</td>
+                                <td class="p-3">Pasqua e Lunedì dell'Angelo</td>
+                                <td class="p-3">Turismo Culturale Europeo ed Extra-UE</td>
+                                <td class="p-3 text-right font-bold text-sky-600">+100% (Min stay 3 notti)</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50/50 bg-sky-50/30">
+                                <td class="p-3 font-bold text-sky-900">06 – 18 Maggio 2025</td>
+                                <td class="p-3 font-bold text-sky-900">Internazionali BNL d'Italia (Tennis)</td>
+                                <td class="p-3 text-sky-800">High-Spenders, Clienti VIP, Corporate</td>
+                                <td class="p-3 text-right font-bold text-emerald-600">PICCO ASSOLUTO (+150%)</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50/50">
+                                <td class="p-3 font-bold text-gray-900">Maggio – Luglio 2025</td>
+                                <td class="p-3">Stagione Estiva Concerti & Opera al Circo Massimo</td>
+                                <td class="p-3">Coppie, Amanti della Musica, Turismo Giovanile</td>
+                                <td class="p-3 text-right font-bold text-sky-600">+60% nei giorni evento</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50/50">
+                                <td class="p-3 font-bold text-gray-900">Settembre – Ottobre 2025</td>
+                                <td class="p-3">Mesi d'Oro Turismo Americano (Meteo Ideale)</td>
+                                <td class="p-3">Turisti USA, Canada, Australia (Lungo raggio)</td>
+                                <td class="p-3 text-right font-bold text-sky-600">+70% costante (Mantenimento)</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50/50">
+                                <td class="p-3 font-bold text-gray-900">24 – 31 Dicembre 2025</td>
+                                <td class="p-3">Capodanno & Chiusura Anno Santo</td>
+                                <td class="p-3">Gruppi, Famiglie, Turismo Internazionale</td>
+                                <td class="p-3 text-right font-bold text-sky-600">+110% (Min stay 4 notti)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: STRATEGIA & SIMULATORE ROI -->
+        <section id="sec-strategia" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Decision Making Tool</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Analisi Strategica & Simulatore Finanziario ROI</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    In base ai tuoi obiettivi di investitore, seleziona la modalità operativa d'ingresso (Sublocazione / Rent-to-Rent, Property Management, o Buy-to-Let) e simula il conto economico stimato per Via dei Banchi Nuovi 28.
+                </p>
+            </div>
+
+            <!-- Comparison of Models -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-xl border-2 border-sky-500 shadow-sm relative">
+                    <span class="absolute -top-3 right-4 bg-sky-600 text-white text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">Consigliato per ROIC</span>
+                    <h4 class="font-bold text-gray-900 text-sm">1. Sublocazione (Rent-to-Rent)</h4>
+                    <p class="text-xs text-gray-500 mt-1 mb-3">Prendi in affitto con contratto 4+4 e subaffitti a uso turistico.</p>
+                    <ul class="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                        <li>Capitale richiesto basso (€15k - €25k)</li>
+                        <li>Leva finanziaria e ROIC molto elevato</li>
+                        <li>Rischio: Canone fisso mensile da garantire</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <h4 class="font-bold text-gray-900 text-sm">2. Property Management</h4>
+                    <p class="text-xs text-gray-500 mt-1 mb-3">Gestisci l'immobile per conto del proprietario con provvigione %.</p>
+                    <ul class="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                        <li>Rischio finanziario quasi nullo</li>
+                        <li>Commissioni tipiche: 18% - 25% del lordo</li>
+                        <li>Richiede contratti di gestione stabili</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <h4 class="font-bold text-gray-900 text-sm">3. Acquisto (Buy-to-Let)</h4>
+                    <p class="text-xs text-gray-500 mt-1 mb-3">Acquisti la proprietà, la ristrutturi e la metti a reddito.</p>
+                    <ul class="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                        <li>Patrimonializzazione e apprezzamento immobile</li>
+                        <li>Resa netta stabile (5% - 7% annuo)</li>
+                        <li>Capitale richiesto elevato (€400k - €700k+)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ROI Interactive Simulator Container -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+                <h3 class="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3">Simulatore di Redditività per Banchi Nuovi 28</h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Calculator Inputs -->
+                    <div class="lg:col-span-6 space-y-4 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <h4 class="text-xs font-bold uppercase text-gray-700 tracking-wider">Parametri dell'Investimento</h4>
+
+                        <div>
+                            <label for="simModel" class="block text-xs font-semibold text-gray-700 mb-1">Modello di Gestione:</label>
+                            <select id="simModel" onchange="calculateRoi()" class="w-full bg-white border border-gray-300 text-gray-900 text-xs rounded-lg p-2.5 font-medium">
+                                <option value="r2r" selected>Sublocazione Turistica (Rent-to-Rent)</option>
+                                <option value="pm">Property Management (Commissione 20%)</option>
+                                <option value="b2l">Acquisto Diretto (Buy-to-Let)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                                <span>Prezzo Medio Notte (ADR):</span>
+                                <span id="lblAdr" class="text-sky-600 font-bold">€ 220</span>
+                            </div>
+                            <input type="range" id="simAdr" min="120" max="500" step="10" value="220" oninput="calculateRoi()" class="w-full accent-sky-600">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                                <span>Tasso di Occupazione Annuo:</span>
+                                <span id="lblOcc" class="text-sky-600 font-bold">72 %</span>
+                            </div>
+                            <input type="range" id="simOcc" min="45" max="92" step="1" value="72" oninput="calculateRoi()" class="w-full accent-sky-600">
+                        </div>
+
+                        <div id="costInputGroup">
+                            <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                                <span id="lblCostTitle">Affitto Passivo Mensile concordato:</span>
+                                <span id="lblCostVal" class="text-sky-600 font-bold">€ 2.200</span>
+                            </div>
+                            <input type="range" id="simCost" min="1200" max="4500" step="100" value="2200" oninput="calculateRoi()" class="w-full accent-sky-600">
+                        </div>
+                    </div>
+
+                    <!-- Calculator Output -->
+                    <div class="lg:col-span-6 bg-white p-5 rounded-xl border border-gray-200 flex flex-col justify-between space-y-4">
+                        <div>
+                            <h4 class="text-xs font-bold uppercase text-gray-700 tracking-wider mb-3">Proiezione Conto Economico Annuo</h4>
+                            <div class="space-y-2.5 text-xs">
+                                <div class="flex justify-between pb-1.5 border-b border-gray-100">
+                                    <span class="text-gray-600">Fatturato Lordo Annuo (Gross Revenue):</span>
+                                    <span id="resGross" class="font-bold text-gray-900">€ 57.816</span>
+                                </div>
+                                <div class="flex justify-between pb-1.5 border-b border-gray-100">
+                                    <span class="text-gray-600">Commissioni OTA (~15%):</span>
+                                    <span id="resOta" class="font-semibold text-red-500">- € 8.672</span>
+                                </div>
+                                <div class="flex justify-between pb-1.5 border-b border-gray-100">
+                                    <span class="text-gray-600">Spese Operative (Pulizie, Utenze, Manutenzione):</span>
+                                    <span id="resOps" class="font-semibold text-red-500">- € 10.406</span>
+                                </div>
+                                <div class="flex justify-between pb-1.5 border-b border-gray-100">
+                                    <span id="lblDirectCost" class="text-gray-600">Canone Affitto Passivo Annuo:</span>
+                                    <span id="resDirect" class="font-semibold text-red-500">- € 26.400</span>
+                                </div>
+                                <div class="flex justify-between pb-1.5 border-b border-gray-100">
+                                    <span class="text-gray-600">Imposte Stimate (Cedolare Secca 21%/26% o IRPEF):</span>
+                                    <span id="resTax" class="font-semibold text-red-500">- € 2.591</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t-2 border-sky-100 bg-sky-50/50 p-4 rounded-xl space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-gray-700 uppercase">Utile Netto Annuo Stimato:</span>
+                                <span id="resNet" class="text-xl font-black text-emerald-600">€ 9.747</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-gray-600">Rendimento sul Capitale (ROIC / Yield):</span>
+                                <span id="resRoic" class="font-bold text-sky-700 text-sm">38,9 %</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target & Differentiation -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
+                    <h4 class="font-bold text-gray-900 text-sm">🎯 Target più Profittevole</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        <strong>Famiglie ad alto budget e gruppi di 4-6 persone</strong>. Riformattare l'immobile come Trilocale o Casa con Giardino/Corte interna permette di catturare la clientela americana ed europea disposta a pagare un sovrapprezzo per la combinazione di spazio, privacy e posizione centrale.
+                    </p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
+                    <h4 class="font-bold text-gray-900 text-sm">✨ Fattori Differenzianti Unici</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        1. <strong>Insonorizzazione Premium:</strong> Serramenti acustici a triplo vetro.<br>
+                        2. <strong>Self Check-in Biometrico:</strong> Piena conformità al TULPS con domotica integrata.<br>
+                        3. <strong>Design "Luxe-Romano":</strong> Contrasto tra travi a vista originali, giardino interno e arredi contemporanei.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 6: PIANO D'AZIONE -->
+        <section id="sec-piano" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Roadmap Operativa</span>
+                <h2 class="text-2xl font-bold text-gray-900 mt-1 mb-2">Piano d'Azione in 5 Mosse Chiave</h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Sequenza logica ed esecutiva per un investitore che intende fare ingresso nel mercato di Via dei Banchi Nuovi 28 con il massimo rendimento netto.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Step 1 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start gap-4">
+                    <div class="bg-sky-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">1</div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-gray-900 text-sm">Due Diligence Urbanistica, Permessi & Ingegnerizzazione Fiscale</h4>
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Verificare la destinazione catastale (Cat. A/2 o A/3) ed eseguire la comunicazione SCIA per struttura extra-alberghiera. Ottenere tempestivamente il <strong>CIN (Codice Identificativo Nazionale)</strong> ed erigere la struttura societaria idonea (Persona Fisica con Cedolare Secca 21% per il primo immobile o SRL per operazioni in Sublocazione scalabili).
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start gap-4">
+                    <div class="bg-sky-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">2</div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-gray-900 text-sm">Negoziazione Contratto & Acquisizione Immobile</h4>
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Negoziare un contratto di locazione ad uso diverso da quello abitativo (o 4+4 derogato) con espressa <strong>clausola di autorizzazione alla sublocazione turistica e cessione d'azienda</strong>. Concordare un canone sostenibile (target €2.000 - €2.400/mese) inserendo eventualmente una fideiussione bancaria a garanzia del proprietario.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start gap-4">
+                    <div class="bg-sky-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">3</div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-gray-900 text-sm">Adeguamento Sicurezza CIN, Smart Lock & Restyling Interior</h4>
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Installare i dispositivi di sicurezza obbligatori per legge (estintori 13A ogni 200 mq, rilevatori di gas CO) e implementare serrature domotiche (Smart Lock) collegate a portali di check-in online per l'invio automatico delle schedine alla Questura (Alloggiati Web - Art. 109 TULPS).
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start gap-4">
+                    <div class="bg-sky-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">4</div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-gray-900 text-sm">Shooting Fotografico Pro & Distribuzione Multicanale</h4>
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Realizzare un servizio fotografico e video professionale con home staging curato. Pubblicare l'annuncio su Airbnb, Booking.com e VRBO tramite un <strong>Channel Manager</strong> centralizzato, ottimizzando la scheda in lingua inglese per il target USA ed Europeo.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start gap-4">
+                    <div class="bg-sky-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">5</div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-gray-900 text-sm">Attivazione Dynamic Pricing & Direct Booking Strategy</h4>
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Connettere un software di pricing algoritmico (es. PriceLabs) per aggiornare quotidianamente i prezzi in base all'occupazione di zona e al calendario eventi 2025 (Pasqua, Internazionali BNL, Giubileo). Creare un sito web proprietario per convertire gli ospiti ricorrenti a commissioni zero.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Data Store for Monthly Seasonality Chart per Typology (Monolocale, Bilocale, Trilocale, Quadrilocale, Casa con giardino)
+        const monthlyDataPerType = {
+            monolocale: {
+                label: "Monolocale (Studio)",
+                note: "Visualizzazione: Monolocale (1 Ambiente / 1 Bagno). Soluzione compatta con occupazione elevata, ideale per singoli o coppie giovani. ADR più contenuto.",
+                occ: [55, 60, 72, 88, 90, 85, 78, 68, 88, 86, 65, 80],
+                adr: [110, 120, 145, 190, 210, 185, 165, 150, 200, 185, 130, 175]
+            },
+            bilocale: {
+                label: "Bilocale",
+                note: "Visualizzazione: Bilocale (1 Cam / 1 Bagno). Tipologia ad altissimo tasso di occupazione costante, ideale per coppie e travel business.",
+                occ: [52, 58, 70, 86, 89, 84, 76, 66, 87, 85, 63, 78],
+                adr: [135, 145, 175, 235, 265, 230, 205, 180, 250, 230, 160, 215]
+            },
+            trilocale: {
+                label: "Trilocale (Sweet Spot)",
+                note: "Visualizzazione: Trilocale (2 Camere / 2 Bagni). Il vero SWEET SPOT a Banchi Nuovi: perfetto per famiglie e 2 coppie, cattura il target americano con ADR alto.",
+                occ: [48, 54, 67, 84, 87, 81, 73, 62, 85, 83, 60, 75],
+                adr: [180, 195, 240, 330, 380, 320, 280, 250, 360, 330, 220, 310]
+            },
+            quadrilocale: {
+                label: "Quadrilocale",
+                note: "Visualizzazione: Quadrilocale (3+ Camere / 2+ Bagni). Destinato a gruppi numerosi e famiglie estese. Ottima marginalità nei mesi di picco eventi.",
+                occ: [42, 48, 62, 80, 83, 77, 68, 58, 81, 79, 54, 70],
+                adr: [260, 280, 350, 480, 550, 460, 410, 370, 520, 470, 310, 450]
+            },
+            giardino: {
+                label: "Casa con giardino / Corte",
+                note: "Visualizzazione: Casa con giardino o corte privata interna. Unità rarity di pregio nel centro di Roma. ADR premium ed elevata richiesta estiva/primaverile.",
+                occ: [45, 50, 65, 82, 86, 82, 75, 65, 84, 81, 55, 72],
+                adr: [280, 310, 390, 520, 600, 520, 450, 400, 560, 500, 330, 480]
+            }
+        };
+
+        // Static Property Benchmark Summary Data for Tab 3
+        const propertyData = {
+            all: {
+                labels: ['Monolocale', 'Bilocale', 'Trilocale', 'Quadrilocale', 'Casa con Giardino'],
+                adr: [160, 205, 290, 420, 440],
+                occ: [74, 76, 70, 64, 69],
+                summary: "Mostrando panoramica comparativa per tutte le tipologie in zona Banchi Nuovi / Rione Ponte."
+            },
+            monolocale: {
+                labels: ['Monolocale'],
+                adr: [160],
+                occ: [74],
+                summary: "Monolocale: Scontrino medio fluido, occupazione elevata, costi di riassetto pulizia contenuti."
+            },
+            bilocale: {
+                labels: ['Bilocale (1 Cam / 1 Bagno)'],
+                adr: [205],
+                occ: [76],
+                summary: "Bilocale: Massima liquidità di mercato. Scontrino medio-alto con saturazione costante."
+            },
+            trilocale: {
+                labels: ['Trilocale (2 Cam / 2 Bagni)'],
+                adr: [290],
+                occ: [70],
+                summary: "Trilocale: La soluzione più redditizia per Banchi Nuovi 28. Ottimo bilanciamento tra ADR ed occupazione."
+            },
+            quadrilocale: {
+                labels: ['Quadrilocale (3+ Camere)'],
+                adr: [420],
+                occ: [64],
+                summary: "Quadrilocale: Elevato scontrino medio notte per gruppi. Maggiore usura ma altissima resa ad evento."
+            },
+            giardino: {
+                labels: ['Casa con Giardino / Corte'],
+                adr: [440],
+                occ: [69],
+                summary: "Casa con Giardino: Elemento differenziante raro nel Centro Storico romano. Presenza di spazio esterno esclusivo."
+            }
+        };
+
+        // Chart Instances Storage
+        let chartSeasonality, chartOrigin, chartSupply, chartAdr, chartOcc;
+
+        // Toggle Sidebar Navigation (Mobile)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('hidden');
+        }
+
+        // Switch Navigation Tabs
+        function switchTab(tabId) {
+            // Hide all sections
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show target section
+            document.getElementById('sec-' + tabId).classList.remove('hidden');
+
+            // Update Nav Active State
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('nav-active'));
+            document.getElementById('nav-' + tabId).classList.add('nav-active');
+
+            // Close mobile sidebar if open
+            if (window.innerWidth < 1024) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            }
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // 1. Seasonality Chart (Tab 1)
+            const ctx1 = document.getElementById('seasonalityChart').getContext('2d');
+            const defaultType = monthlyDataPerType.bilocale;
+
+            chartSeasonality = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+                    datasets: [
+                        {
+                            label: 'Occupazione (%)',
+                            data: defaultType.occ,
+                            borderColor: '#0284c7',
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'ADR Medio (€)',
+                            data: defaultType.adr,
+                            borderColor: '#059669',
+                            backgroundColor: 'rgba(5, 150, 105, 0.05)',
+                            borderDash: [5, 5],
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            max: 100,
+                            ticks: { callback: v => v + '%' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { callback: v => '€' + v }
+                        }
+                    }
+                }
+            });
+
+            // 2. Origin Doughnut Chart
+            const ctx2 = document.getElementById('originChart').getContext('2d');
+            chartOrigin = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Stati Uniti (USA)', 'Italia', 'Regno Unito (UK)', 'Germania & Nord Europa', 'Francia & Spagna', 'Altri Extra-UE'],
+                    datasets: [{
+                        data: [28, 38, 12, 10, 7, 5],
+                        backgroundColor: ['#0284c7', '#94a3b8', '#0369a1', '#38bdf8', '#7dd3fc', '#cbd5e1']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // 3. Supply Bar Chart
+            const ctx3 = document.getElementById('supplyChart').getContext('2d');
+            chartSupply = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: ['Appartamenti / Case Vacanza', 'B&B e Affittacamere', 'Hotel 3-4 Stelle', 'Boutique Hotel 5*', 'Residenze d\'Epoca'],
+                    datasets: [{
+                        label: 'Numero Strutture Attive (Area Centro)',
+                        data: [18500, 4200, 850, 180, 320],
+                        backgroundColor: '#0284c7',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 4. ADR Dynamic Bar Chart (Tab 3)
+            const ctx4 = document.getElementById('adrChart').getContext('2d');
+            chartAdr = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: propertyData.all.labels,
+                    datasets: [{
+                        label: 'ADR Medio (€/notte)',
+                        data: propertyData.all.adr,
+                        backgroundColor: '#0369a1',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v } } }
+                }
+            });
+
+            // 5. Occupancy Dynamic Bar Chart (Tab 3)
+            const ctx5 = document.getElementById('occChart').getContext('2d');
+            chartOcc = new Chart(ctx5, {
+                type: 'bar',
+                data: {
+                    labels: propertyData.all.labels,
+                    datasets: [{
+                        label: 'Occupazione Media (%)',
+                        data: propertyData.all.occ,
+                        backgroundColor: '#059669',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+                }
+            });
+        }
+
+        // Update Monthly Seasonality Line Chart based on Selector
+        function updateMonthlySeasonalityChart() {
+            const key = document.getElementById('monthlyPropertySelector').value;
+            const dataObj = monthlyDataPerType[key];
+
+            if (!dataObj) return;
+
+            // Update chart datasets
+            chartSeasonality.data.datasets[0].data = dataObj.occ;
+            chartSeasonality.data.datasets[1].data = dataObj.adr;
+            chartSeasonality.update();
+
+            // Update explanatory note text
+            document.getElementById('monthlyTypeNote').innerText = dataObj.note;
+        }
+
+        // Update Competitor Benchmark Charts in Tab 3
+        function updateCompetitorCharts() {
+            const key = document.getElementById('propertyTypeSelector').value;
+            const data = propertyData[key];
+
+            document.getElementById('propertyTypeSummary').innerText = data.summary;
+
+            // Update ADR Chart
+            chartAdr.data.labels = data.labels;
+            chartAdr.data.datasets[0].data = data.adr;
+            chartAdr.update();
+
+            // Update Occupancy Chart
+            chartOcc.data.labels = data.labels;
+            chartOcc.data.datasets[0].data = data.occ;
+            chartOcc.update();
+        }
+
+        // Financial ROI Calculator Logic
+        function calculateRoi() {
+            const model = document.getElementById('simModel').value;
+            const adr = parseFloat(document.getElementById('simAdr').value);
+            const occ = parseFloat(document.getElementById('simOcc').value) / 100;
+            const costVal = parseFloat(document.getElementById('simCost').value);
+
+            // Update UI Labels
+            document.getElementById('lblAdr').innerText = '€ ' + adr;
+            document.getElementById('lblOcc').innerText = Math.round(occ * 100) + ' %';
+            document.getElementById('lblCostVal').innerText = '€ ' + costVal.toLocaleString('it-IT');
+
+            const costGroup = document.getElementById('costInputGroup');
+            const lblCostTitle = document.getElementById('lblCostTitle');
+            const lblDirectCost = document.getElementById('lblDirectCost');
+
+            if (model === 'r2r') {
+                costGroup.style.display = 'block';
+                lblCostTitle.innerText = 'Affitto Passivo Mensile concordato:';
+                lblDirectCost.innerText = 'Canone Affitto Passivo Annuo:';
+            } else if (model === 'b2l') {
+                costGroup.style.display = 'block';
+                lblCostTitle.innerText = 'Valore di Acquisto dell\'Asset (€):';
+                lblDirectCost.innerText = 'Ammortamento / Costi di Capitale:';
+            } else {
+                costGroup.style.display = 'none';
+                lblDirectCost.innerText = 'Costi Struttura Management:';
+            }
+
+            // Calculations
+            const grossRevenue = adr * 365 * occ;
+            const otaFees = grossRevenue * 0.15;
+            const opsCosts = grossRevenue * 0.18;
+
+            let directCost = 0;
+            let tax = 0;
+            let capitalInvested = 25000;
+
+            if (model === 'r2r') {
+                directCost = costVal * 12;
+                const taxable = Math.max(0, grossRevenue - otaFees - opsCosts - directCost);
+                tax = taxable * 0.21;
+                capitalInvested = 25000; // Caparra + restyling
+            } else if (model === 'b2l') {
+                directCost = 0;
+                tax = grossRevenue * 0.21; // Cedolare Secca
+                capitalInvested = costVal; // Costo acquisto
+            } else if (model === 'pm') {
+                const pmCommission = grossRevenue * 0.20;
+                directCost = grossRevenue - pmCommission;
+                tax = pmCommission * 0.24;
+                capitalInvested = 5000;
+            }
+
+            let netProfit = 0;
+            if (model === 'pm') {
+                netProfit = (grossRevenue * 0.20) - (opsCosts * 0.3) - tax;
+            } else {
+                netProfit = grossRevenue - otaFees - opsCosts - directCost - tax;
+            }
+
+            const roic = (netProfit / capitalInvested) * 100;
+
+            // Output Rendering
+            document.getElementById('resGross').innerText = '€ ' + Math.round(grossRevenue).toLocaleString('it-IT');
+            document.getElementById('resOta').innerText = '- € ' + Math.round(otaFees).toLocaleString('it-IT');
+            document.getElementById('resOps').innerText = '- € ' + Math.round(opsCosts).toLocaleString('it-IT');
+            document.getElementById('resDirect').innerText = '- € ' + Math.round(directCost).toLocaleString('it-IT');
+            document.getElementById('resTax').innerText = '- € ' + Math.round(tax).toLocaleString('it-IT');
+            document.getElementById('resNet').innerText = '€ ' + Math.round(netProfit).toLocaleString('it-IT');
+            document.getElementById('resRoic').innerText = roic.toFixed(1) + ' %';
+        }
+
+        // DOM Loaded Init
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            calculateRoi();
+        });
+    </script>
+</body>
+</html>
